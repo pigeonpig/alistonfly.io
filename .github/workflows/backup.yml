@@ -1,0 +1,64 @@
+name: backup to onedrive #Action运行标题
+
+on: #运行条件
+  push: #推送到 master 时运行
+    branches: 
+      - main  #看自己仓库，有些是main
+  schedule: #定时运行
+    - cron: 0 22 1/4 * *
+  watch: #点star时运行
+    types: started
+jobs:
+  run-it:
+    runs-on: ubuntu-latest
+    name: zip
+    steps:
+
+      - name: Checkout codes
+        uses: actions/checkout@v2
+
+      - name: Install rclone #安装rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Unzip config #解压配置文件
+        run: |
+         mkdir -p ~/.config/rclone/
+         unzip -P ${{ secrets.PASSWD }} rclone.zip -d ~/.config/rclone/
+     
+      - name: Run rclone #运行rclone
+        run: |
+          
+          # 延迟函数 可以删
+          delay()
+          {
+          random_time=$(($RANDOM % $1))
+          echo "等待 ${random_time} 分钟后开始"
+          for((i=1;i<=${random_time};i++));  
+          do
+          echo "倒计时 $[${random_time}-$i] 分钟"
+          sleep 1m
+          done
+          }
+          # 随机延迟0~2分钟后再进行操作,可自行设置时间 都能删
+          delay 2 
+
+          # 更改时区 可以删
+          sudo cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+          ls -a
+          # 生成时间写入time.log ，将网盘目录写入lsf.log 可以删
+          echo `date +"%Y-%m-%d %H:%M:%S"` begin > time.log 
+          echo "列出文件(此处不展示)" #可以删
+          rclone lsf e5:/ > "lsf.log"
+          rclone mkdir e5:/github/alistonfly.io
+          rclone sync ./ e5:/github/alistonfly.io
+
+      - name: Zip config #打包配置文件
+        run: zip -P ${{ secrets.PASSWD }} rclone.zip -j ~/.config/rclone/rclone.conf
+
+      - name: Commit config #提交配置文件
+        run: |
+         git config --global user.email "550029691@qq.com"
+         git config --global user.name "valetzx"
+         git add .
+         git commit -am "GitHub Actions Auto Rclone at $(date +'%Y-%m-%d %H:%M:%S')"
+         git push --force # --force 是强制推送可以删
